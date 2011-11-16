@@ -23,7 +23,6 @@
 #
 #   spark -h
 #   # => Prints the spark help text.
-set -e
 
 # Prints the help text for spark.
 #
@@ -44,7 +43,7 @@ EOF
 }
 
 # The actual fun characters we are generating in the sparkline.
-ticks=(▁ ▂ ▃ ▄ ▅ ▆ ▇)
+ticks=(▁ ▂ ▃ ▄ ▅ ▆ ▇ █)
 
 # The numbers the user gave us.
 numbers=()
@@ -69,7 +68,7 @@ setup_array() {
 sort_max()
 {
   last=${#sorted[@]}
-  echo ${sorted[$last - 1]}
+  echo $(echo ${sorted[$last - 1]} | awk '{printf "%.0f",$1}')
 }
 
 # The minimum value of the sorted array. In other words, the first value.
@@ -83,6 +82,10 @@ tier()
 {
   number_of_ticks=${#ticks[@]}
   distance=$(( $(sort_max) / $number_of_ticks ))
+  if [ $distance -eq 0 ]
+  then
+    distance=1
+  fi
   echo $distance
 }
 
@@ -92,18 +95,17 @@ tier()
 print_tick()
 {
   tier=$(tier)
+
   for (( i = 0 ; i < ${#ticks[@]} ; i++ ))
   do
-    s=0
-    tick=${ticks[$i]}
-    number=$1
+    number=$(echo $1 | awk '{printf "%.0f",$1}')
     less_than=$(( $i * $tier + sort_min + $tier ))
     greater_than=$(( ($i - 1) * $tier + sort_min + $tier ))
     result=$(( $number <= $less_than && $number >= $greater_than ))
 
     if [ $result -eq 1 ]
     then
-      printf '%s' "$tick"
+      printf '%s' "${ticks[$i]}"
       return
     fi
   done
@@ -132,9 +134,9 @@ while getopts ":h" option; do
 done
 
 # Accept input from $1 or from the pipeline.
-if test "$1" != ""
+if test "$*" != ""
 then
-  data="$1"
+  data="$*"
 else
   # check to see if stdin's a tty
   if [ -t 0 ]; then
@@ -142,8 +144,11 @@ else
     exit
   fi
 
-  read data
+  data="`cat`"
 fi
+
+# Trim spaces to allow input like '1, 2, 3'
+data=$(echo $data | tr -s '[:space:]' ',')
 
 setup_array $data
 print_ticks $data
